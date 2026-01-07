@@ -1,5 +1,6 @@
-import React from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { StructuredSummary, SummaryHighlight, ActionPlanItem } from '../types';
+import { streamAudioBriefing } from '../services/geminiService';
 import { 
   Trophy, 
   AlertTriangle, 
@@ -12,12 +13,48 @@ import {
   AlertOctagon,
   ArrowRight,
   Rocket,
-  ThumbsUp
+  ThumbsUp,
+  PlayCircle,
+  StopCircle,
+  Loader2,
+  Volume2
 } from 'lucide-react';
 
 interface ExecutiveSummaryProps {
   summary: StructuredSummary;
 }
+
+// --- Audio Helper Functions (Streaming Support) ---
+function decode(base64: string) {
+  const binaryString = atob(base64);
+  const len = binaryString.length;
+  const bytes = new Uint8Array(len);
+  for (let i = 0; i < len; i++) {
+    bytes[i] = binaryString.charCodeAt(i);
+  }
+  return bytes;
+}
+
+async function decodeAudioData(
+  data: Uint8Array,
+  ctx: AudioContext,
+  sampleRate: number,
+  numChannels: number,
+): Promise<AudioBuffer> {
+  const dataInt16 = new Int16Array(data.buffer);
+  const frameCount = dataInt16.length / numChannels;
+  const buffer = ctx.createBuffer(numChannels, frameCount, sampleRate);
+
+  for (let channel = 0; channel < numChannels; channel++) {
+    const channelData = buffer.getChannelData(channel);
+    for (let i = 0; i < frameCount; i++) {
+      channelData[i] = dataInt16[i * numChannels + channel] / 32768.0;
+    }
+  }
+  return buffer;
+}
+
+// --- Components ---
 
 const HighlightCard: React.FC<{ data: SummaryHighlight, icon: React.ReactNode, index: number }> = ({ data, icon, index }) => {
   const getStyles = (type: string) => {
@@ -86,18 +123,165 @@ const ActionPlanRow: React.FC<{ action: ActionPlanItem, index: number }> = ({ ac
 };
 
 const ExecutiveSummary: React.FC<ExecutiveSummaryProps> = ({ summary }) => {
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [isAudioLoading, setIsAudioLoading] = useState(false);
+  
+  // Refs for audio control
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const sourcesRef = useRef<AudioBufferSourceNode[]>([]);
+  const nextStartTimeRef = useRef<number>(0);
+  const isCancelledRef = useRef<boolean>(false);
+
+  const stopAudio = () => {
+    isCancelledRef.current = true;
+    sourcesRef.current.forEach(source => {
+      try { source.stop(); } catch(e) {}
+    });
+    sourcesRef.current = [];
+    nextStartTimeRef.current = 0;
+    setIsPlaying(false);
+    setIsAudioLoading(false);
+  };
+
+  const handlePlayAudio = async () => {
+    if (isPlaying) {
+      stopAudio();
+      return;
+    }
+
+    try {
+      setIsAudioLoading(true);
+      isCancelledRef.current = false;
+      
+      // Initialize Audio Context immediately on click
+      if (!audioContextRef.current) {
+        audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)({sampleRate: 24000});
+      }
+      const ctx = audioContextRef.current;
+      if (ctx.state === 'suspended') {
+        await ctx.resume();
+      }
+
+      nextStartTimeRef.current = ctx.currentTime + 0.1; // Small buffer for first chunk
+      
+      // Start Streaming
+      const stream = streamAudioBriefing(summary);
+      let chunkCount = 0;
+
+      for await (const base64Chunk of stream) {
+        if (isCancelledRef.current) break;
+
+        // Decode Chunk
+        const audioBuffer = await decodeAudioData(
+          decode(base64Chunk),
+          ctx,
+          24000, 
+          1      
+        );
+
+        // Schedule Playback
+        const source = ctx.createBufferSource();
+        source.buffer = audioBuffer;
+        source.connect(ctx.destination);
+        
+        // Ensure gapless playback by scheduling next chunk at end of previous
+        // If system lagged, start immediately (max logic)
+        const startAt = Math.max(ctx.currentTime, nextStartTimeRef.current);
+        source.start(startAt);
+        
+        nextStartTimeRef.current = startAt + audioBuffer.duration;
+        sourcesRef.current.push(source);
+
+        // Clean up finished sources (optional optimization)
+        source.onended = () => {
+             const idx = sourcesRef.current.indexOf(source);
+             if (idx > -1) sourcesRef.current.splice(idx, 1);
+             // If all done and no more chunks coming (approx logic), we could set isPlaying false here
+             // but we do it outside loop or rely on last chunk.
+        };
+
+        if (chunkCount === 0) {
+          setIsPlaying(true);
+          setIsAudioLoading(false); // First sound playing!
+        }
+        chunkCount++;
+      }
+
+      // Handle natural end of stream
+      if (!isCancelledRef.current) {
+         // Create a dummy source that ends at the very end to trigger state cleanup
+         // Or simpler: set a timeout for the remaining duration
+         const remainingTime = (nextStartTimeRef.current - ctx.currentTime) * 1000;
+         setTimeout(() => {
+           if(!isCancelledRef.current) setIsPlaying(false);
+         }, remainingTime + 200);
+      }
+
+    } catch (error) {
+      console.error(error);
+      alert("Não foi possível reproduzir o áudio.");
+      setIsPlaying(false);
+      setIsAudioLoading(false);
+    }
+  };
+  
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => stopAudio();
+  }, []);
+
   return (
     <div className="max-w-7xl mx-auto space-y-8 pb-12">
       
       {/* Header Section */}
-      <div className="flex items-center gap-4 mb-2 animate-fade-in-up">
-        <div className="p-3 bg-indigo-600 rounded-2xl shadow-lg shadow-indigo-200">
-          <BrainCircuit className="w-8 h-8 text-white" />
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-2 animate-fade-in-up">
+        <div className="flex items-center gap-4">
+          <div className="p-3 bg-indigo-600 rounded-2xl shadow-lg shadow-indigo-200">
+            <BrainCircuit className="w-8 h-8 text-white" />
+          </div>
+          <div>
+            <h2 className="text-3xl font-bold text-slate-900">Análise Executiva & Auditoria</h2>
+            <p className="text-slate-500 text-lg">Diagnóstico crítico gerado por inteligência artificial</p>
+          </div>
         </div>
-        <div>
-          <h2 className="text-3xl font-bold text-slate-900">Análise Executiva & Auditoria</h2>
-          <p className="text-slate-500 text-lg">Diagnóstico crítico gerado por inteligência artificial</p>
-        </div>
+
+        {/* AI Audio Assistant Button */}
+        <button
+          onClick={handlePlayAudio}
+          disabled={isAudioLoading}
+          className={`
+            flex items-center gap-3 px-5 py-3 rounded-full font-semibold shadow-lg transition-all transform hover:scale-105 active:scale-95
+            ${isPlaying 
+              ? 'bg-rose-100 text-rose-600 border border-rose-200 hover:bg-rose-200' 
+              : 'bg-slate-900 text-white hover:bg-slate-800'
+            }
+          `}
+        >
+          {isAudioLoading ? (
+            <Loader2 className="w-5 h-5 animate-spin" />
+          ) : isPlaying ? (
+            <StopCircle className="w-5 h-5" />
+          ) : (
+            <PlayCircle className="w-5 h-5" />
+          )}
+          
+          <div className="flex flex-col items-start leading-none">
+            <span className="text-xs font-normal opacity-80 uppercase tracking-wide">
+              {isPlaying ? 'Parar Áudio' : 'Ouvir Assistente'}
+            </span>
+            <span className="text-sm font-bold">
+              {isPlaying ? 'Reproduzindo...' : 'Análise de Voz'}
+            </span>
+          </div>
+
+          {isPlaying && (
+            <div className="flex gap-0.5 items-end h-4 ml-1">
+              <span className="w-1 bg-rose-500 h-2 animate-[pulse_0.5s_ease-in-out_infinite]"></span>
+              <span className="w-1 bg-rose-500 h-4 animate-[pulse_0.7s_ease-in-out_infinite]"></span>
+              <span className="w-1 bg-rose-500 h-3 animate-[pulse_0.6s_ease-in-out_infinite]"></span>
+            </div>
+          )}
+        </button>
       </div>
 
       {/* Best Decision Banner */}

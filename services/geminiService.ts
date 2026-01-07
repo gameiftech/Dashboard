@@ -1,5 +1,5 @@
-import { GoogleGenAI, Type } from "@google/genai";
-import { AnalysisResult, ReportType } from "../types";
+import { GoogleGenAI, Type, Modality } from "@google/genai";
+import { AnalysisResult, ReportType, StructuredSummary } from "../types";
 
 // Security Check: Validate Environment Variable
 const getClient = () => {
@@ -212,3 +212,50 @@ export const analyzeData = async (rawData: any[]): Promise<AnalysisResult> => {
     throw new Error(error.message || "Falha na análise inteligente dos dados.");
   }
 };
+
+// Streaming Version for Lower Latency
+export async function* streamAudioBriefing(summary: StructuredSummary) {
+  try {
+    const ai = getClient();
+
+    const script = `
+      Olá, executivo. Aqui está a análise de inteligência do seu negócio.
+      
+      A melhor tomada de decisão estratégica para este cenário é: ${summary.bestDecision}
+      
+      No diagnóstico geral: ${summary.situationalDiagnosis.split('.')[0]}.
+      
+      Atenção para o ponto crítico: ${summary.highlights.worst.title} com valor de ${summary.highlights.worst.value}.
+      
+      Recomendo ação imediata no item: ${summary.actionPlan[0]?.text || 'Verifique o plano de ação'}.
+    `;
+
+    const responseStream = await ai.models.generateContentStream({
+      model: "gemini-2.5-flash-preview-tts",
+      contents: [{ parts: [{ text: script }] }],
+      config: {
+        responseModalities: [Modality.AUDIO],
+        speechConfig: {
+          voiceConfig: {
+            prebuiltVoiceConfig: { voiceName: 'Kore' },
+          },
+        },
+      },
+    });
+
+    for await (const chunk of responseStream) {
+      const parts = chunk.candidates?.[0]?.content?.parts;
+      if (parts) {
+        for (const part of parts) {
+           if (part.inlineData?.data) {
+             yield part.inlineData.data;
+           }
+        }
+      }
+    }
+
+  } catch (error: any) {
+    console.error("Audio Streaming Failed:", error);
+    throw new Error("Não foi possível gerar o áudio do briefing.");
+  }
+}
