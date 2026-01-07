@@ -1,0 +1,260 @@
+import React from 'react';
+import { StructuredSummary, SummaryHighlight, ActionPlanItem } from '../types';
+import { 
+  Trophy, 
+  AlertTriangle, 
+  TrendingUp, 
+  TrendingDown, 
+  Lightbulb, 
+  Target, 
+  BrainCircuit,
+  CheckCircle2,
+  AlertOctagon,
+  ArrowRight,
+  Rocket,
+  ThumbsUp
+} from 'lucide-react';
+
+interface ExecutiveSummaryProps {
+  summary: StructuredSummary;
+}
+
+const HighlightCard: React.FC<{ data: SummaryHighlight, icon: React.ReactNode, index: number }> = ({ data, icon, index }) => {
+  const getStyles = (type: string) => {
+    switch (type) {
+      case 'success': return { border: 'border-l-emerald-500', iconBg: 'bg-emerald-100', iconColor: 'text-emerald-700' };
+      case 'danger': return { border: 'border-l-rose-500', iconBg: 'bg-rose-100', iconColor: 'text-rose-700' };
+      case 'warning': return { border: 'border-l-amber-500', iconBg: 'bg-amber-100', iconColor: 'text-amber-700' };
+      default: return { border: 'border-l-blue-500', iconBg: 'bg-blue-100', iconColor: 'text-blue-700' };
+    }
+  };
+
+  const styles = getStyles(data.type);
+
+  return (
+    <div 
+      className={`bg-white p-5 rounded-r-xl rounded-l-md border-l-4 shadow-sm hover:shadow-lg transition-all duration-300 animate-fade-in-up ${styles.border}`}
+      style={{ animationDelay: `${index * 100}ms` }}
+    >
+      <div className="flex justify-between items-start mb-4">
+        <h4 className="font-bold text-xs uppercase tracking-wider text-slate-500 mt-1">{data.title}</h4>
+        <div className={`p-2 rounded-lg ${styles.iconBg} ${styles.iconColor}`}>
+          {icon}
+        </div>
+      </div>
+      
+      <div className="mb-3">
+        <p className="text-2xl font-black text-slate-800 leading-none tracking-tight">{data.value}</p>
+      </div>
+      
+      <p className="text-sm font-medium text-slate-600 leading-snug border-t border-slate-100 pt-3 mt-1">
+        {data.description}
+      </p>
+    </div>
+  );
+};
+
+const ActionPlanRow: React.FC<{ action: ActionPlanItem, index: number }> = ({ action, index }) => {
+  const getImpactColor = (impact: string) => {
+    switch (impact) {
+      case 'ALTO': return 'bg-rose-100 text-rose-700 border-rose-200';
+      case 'MÉDIO': return 'bg-amber-100 text-amber-700 border-amber-200';
+      default: return 'bg-blue-100 text-blue-700 border-blue-200';
+    }
+  };
+
+  return (
+    <div className="group flex flex-col sm:flex-row gap-4 p-4 rounded-xl border border-slate-700/50 bg-slate-800/50 hover:bg-slate-800 transition-colors">
+      <div className="flex-shrink-0 mt-1">
+        <div className="w-6 h-6 rounded-full bg-slate-700 flex items-center justify-center text-xs font-bold text-white group-hover:bg-emerald-500 transition-colors">
+          {index + 1}
+        </div>
+      </div>
+      <div className="flex-1">
+        <p className="text-slate-200 font-medium text-sm leading-relaxed mb-2">{action.text}</p>
+        <div className="flex flex-wrap gap-2">
+          <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${getImpactColor(action.impact)} uppercase`}>
+            Impacto {action.impact}
+          </span>
+          <span className="px-2 py-0.5 rounded text-[10px] font-bold border border-slate-600 bg-slate-700 text-slate-300 uppercase">
+            {action.effort}
+          </span>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+const ExecutiveSummary: React.FC<ExecutiveSummaryProps> = ({ summary }) => {
+  return (
+    <div className="max-w-7xl mx-auto space-y-8 pb-12">
+      
+      {/* Header Section */}
+      <div className="flex items-center gap-4 mb-2 animate-fade-in-up">
+        <div className="p-3 bg-indigo-600 rounded-2xl shadow-lg shadow-indigo-200">
+          <BrainCircuit className="w-8 h-8 text-white" />
+        </div>
+        <div>
+          <h2 className="text-3xl font-bold text-slate-900">Análise Executiva & Auditoria</h2>
+          <p className="text-slate-500 text-lg">Diagnóstico crítico gerado por inteligência artificial</p>
+        </div>
+      </div>
+
+      {/* Best Decision Banner */}
+      {summary.bestDecision && (
+        <div 
+          className="bg-gradient-to-r from-violet-600 to-indigo-600 rounded-2xl p-8 shadow-xl text-white relative overflow-hidden animate-fade-in-up"
+          style={{ animationDelay: '100ms' }}
+        >
+          <div className="absolute right-0 top-0 opacity-10 transform translate-x-1/4 -translate-y-1/4">
+             <Rocket className="w-64 h-64" />
+          </div>
+          <div className="relative z-10">
+            <div className="flex items-center gap-3 mb-4">
+              <span className="bg-white/20 p-2 rounded-lg backdrop-blur-sm">
+                <Rocket className="w-6 h-6 text-white" />
+              </span>
+              <h3 className="font-bold text-sm uppercase tracking-widest text-indigo-100">Melhor Tomada de Decisão</h3>
+            </div>
+            <p className="text-2xl md:text-3xl font-bold leading-tight max-w-4xl">
+              "{summary.bestDecision}"
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Highlights Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+        <HighlightCard 
+          index={1}
+          data={{...summary.highlights.best, type: 'success'}} 
+          icon={<Trophy className="w-5 h-5" />} 
+        />
+        <HighlightCard 
+          index={2}
+          data={{...summary.highlights.worst, type: 'danger'}} 
+          icon={<AlertOctagon className="w-5 h-5" />} 
+        />
+        <HighlightCard 
+          index={3}
+          data={{...summary.highlights.highest, type: 'info'}} 
+          icon={<TrendingUp className="w-5 h-5" />} 
+        />
+        <HighlightCard 
+          index={4}
+          data={{...summary.highlights.lowest, type: 'warning'}} 
+          icon={<TrendingDown className="w-5 h-5" />} 
+        />
+      </div>
+
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+        
+        {/* Main Diagnosis Column (Wide) */}
+        <div className="lg:col-span-2 space-y-8">
+          
+          {/* Situational Diagnosis */}
+          <div 
+            className="bg-white p-8 rounded-2xl border border-slate-200 shadow-sm animate-fade-in-up"
+            style={{ animationDelay: '500ms' }}
+          >
+            <div className="flex items-center gap-3 mb-6 border-b border-slate-100 pb-4">
+              <div className="p-2 bg-amber-50 rounded-lg">
+                <Lightbulb className="w-6 h-6 text-amber-600" />
+              </div>
+              <div>
+                 <h3 className="text-xl font-bold text-slate-800">Parecer da Auditoria</h3>
+                 <p className="text-xs text-slate-400">Análise de consistência e eficiência</p>
+              </div>
+            </div>
+            <div className="prose prose-slate max-w-none text-slate-600 leading-relaxed text-justify">
+              {summary.situationalDiagnosis.split('\n').map((paragraph, i) => (
+                 <p key={i} className="mb-4 last:mb-0">{paragraph}</p>
+              ))}
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
+            {/* Positive Points */}
+            <div 
+              className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm animate-fade-in-up"
+              style={{ animationDelay: '600ms' }}
+            >
+              <div className="flex items-center gap-3 mb-6 border-b border-slate-100 pb-4">
+                <div className="p-2 bg-emerald-50 rounded-lg">
+                  <ThumbsUp className="w-5 h-5 text-emerald-600" />
+                </div>
+                <h3 className="text-lg font-bold text-slate-800">Pontos Positivos</h3>
+              </div>
+              <div className="space-y-3">
+                {summary.positivePoints?.map((point, idx) => (
+                  <div key={idx} className="flex items-start gap-3 text-sm">
+                    <CheckCircle2 className="w-5 h-5 text-emerald-500 flex-shrink-0 mt-0.5" />
+                    <span className="text-slate-600">{point}</span>
+                  </div>
+                ))}
+                {(!summary.positivePoints || summary.positivePoints.length === 0) && (
+                  <p className="text-slate-400 text-sm italic">Nenhum ponto positivo destacado.</p>
+                )}
+              </div>
+            </div>
+
+            {/* Root Causes */}
+            <div 
+              className="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm animate-fade-in-up"
+              style={{ animationDelay: '700ms' }}
+            >
+              <div className="flex items-center gap-3 mb-6 border-b border-slate-100 pb-4">
+                <div className="p-2 bg-rose-50 rounded-lg">
+                  <Target className="w-5 h-5 text-rose-600" />
+                </div>
+                <h3 className="text-lg font-bold text-slate-800">Pontos de Atenção</h3>
+              </div>
+              <div className="space-y-3">
+                {summary.rootCauses.map((cause, idx) => (
+                  <div key={idx} className="flex items-start gap-3 text-sm">
+                    <AlertTriangle className="w-5 h-5 text-rose-500 flex-shrink-0 mt-0.5" />
+                    <span className="text-slate-600">{cause}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+
+        {/* Action Plan Column (Narrow) */}
+        <div className="lg:col-span-1">
+          <div 
+            className="bg-slate-900 text-white p-6 rounded-2xl shadow-xl h-full animate-fade-in-up flex flex-col"
+            style={{ animationDelay: '800ms' }}
+          >
+             <div className="flex items-center gap-3 mb-8">
+               <div className="p-2 bg-emerald-500/20 rounded-lg backdrop-blur-sm border border-emerald-500/30">
+                  <CheckCircle2 className="w-6 h-6 text-emerald-400" />
+               </div>
+               <div>
+                  <h3 className="text-xl font-bold">Plano de Ação</h3>
+                  <p className="text-xs text-slate-400">Passos recomendados</p>
+               </div>
+             </div>
+             
+             <div className="space-y-4 flex-grow">
+                {summary.actionPlan.map((action, idx) => (
+                  <ActionPlanRow key={idx} action={action} index={idx} />
+                ))}
+             </div>
+
+             <div className="mt-8 pt-6 border-t border-slate-800">
+               <div className="flex items-center gap-2 text-slate-400 text-xs hover:text-white transition-colors cursor-pointer group">
+                  <span>Exportar Plano de Ação</span>
+                  <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+               </div>
+             </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  );
+};
+
+export default ExecutiveSummary;
