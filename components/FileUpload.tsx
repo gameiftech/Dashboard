@@ -4,9 +4,10 @@ import { Upload, FileSpreadsheet, Loader2, BarChart3, ShieldCheck, Zap } from 'l
 interface FileUploadProps {
   onFileSelect: (file: File) => void;
   isProcessing: boolean;
+  onBack?: () => void;
 }
 
-const FileUpload: React.FC<FileUploadProps> = ({ onFileSelect, isProcessing }) => {
+const FileUpload: React.FC<FileUploadProps> = ({ onFileSelect, isProcessing, onBack }) => {
   const [dragActive, setDragActive] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
 
@@ -37,21 +38,21 @@ const FileUpload: React.FC<FileUploadProps> = ({ onFileSelect, isProcessing }) =
   };
 
   return (
-    <div className="flex flex-col items-center justify-center min-h-screen bg-slate-50 w-full relative overflow-hidden">
+    <div className="flex flex-col items-center justify-center min-h-screen bg-slate-50 w-full relative overflow-hidden px-4">
       {/* Background decoration */}
       <div className="absolute top-0 left-0 w-full h-96 bg-gradient-to-b from-slate-900 to-slate-800 z-0"></div>
       
-      <div className="z-10 w-full max-w-5xl px-4">
+      <div className="z-10 w-full max-w-5xl mt-16 md:mt-0">
         {/* Header Section */}
         <div className="text-center mb-12 space-y-4">
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-slate-800 border border-slate-700 text-cyan-400 text-xs font-medium tracking-wide uppercase">
             <Zap className="w-3 h-3" />
             Nova Versão 2.0 IA
           </div>
-          <h1 className="text-5xl font-bold text-white tracking-tight">
+          <h1 className="text-3xl md:text-5xl font-bold text-white tracking-tight">
             Análise Inteligente do <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-blue-500">Seu Negócio</span>
           </h1>
-          <p className="text-slate-300 text-lg max-w-2xl mx-auto leading-relaxed">
+          <p className="text-slate-300 text-sm md:text-lg max-w-2xl mx-auto leading-relaxed px-2">
             Transforme dados brutos do seu ERP em inteligência de negócios.
             Basta arrastar sua planilha Excel exportada.
           </p>
@@ -61,7 +62,7 @@ const FileUpload: React.FC<FileUploadProps> = ({ onFileSelect, isProcessing }) =
         <div className="bg-white rounded-2xl shadow-2xl overflow-hidden border border-slate-200 flex flex-col md:flex-row mb-16 relative z-20">
           
           {/* Left: Upload Area */}
-          <div className="flex-1 p-8 md:p-12 flex flex-col justify-center border-b md:border-b-0 md:border-r border-slate-100">
+          <div className="flex-1 p-6 md:p-12 flex flex-col justify-center border-b md:border-b-0 md:border-r border-slate-100">
             <div
               className={`relative h-64 border-2 border-dashed rounded-xl transition-all duration-300 ease-in-out flex flex-col items-center justify-center cursor-pointer group
                 ${dragActive 
@@ -85,7 +86,7 @@ const FileUpload: React.FC<FileUploadProps> = ({ onFileSelect, isProcessing }) =
               />
 
               {isProcessing ? (
-                <div className="flex flex-col items-center animate-pulse">
+                <div className="flex flex-col items-center animate-pulse text-center p-4">
                   <Loader2 className="w-12 h-12 text-blue-600 animate-spin mb-4" />
                   <p className="text-lg font-semibold text-slate-700">Analisando Dados...</p>
                   <p className="text-sm text-slate-400 mt-2">Identificando padrões e KPIs</p>
@@ -95,24 +96,24 @@ const FileUpload: React.FC<FileUploadProps> = ({ onFileSelect, isProcessing }) =
                   <div className={`p-4 rounded-full mb-4 transition-colors ${dragActive ? "bg-blue-100 text-blue-600" : "bg-slate-100 text-slate-400 group-hover:bg-blue-50 group-hover:text-blue-500"}`}>
                     <Upload className="w-8 h-8" />
                   </div>
-                  <p className="text-lg font-medium text-slate-700 mb-1">
+                  <p className="text-lg font-medium text-slate-700 mb-1 text-center">
                     Arraste sua planilha aqui
                   </p>
-                  <p className="text-sm text-slate-400">
+                  <p className="text-sm text-slate-400 text-center">
                     ou clique para navegar nos arquivos
                   </p>
                 </>
               )}
             </div>
             
-            <div className="mt-6 flex items-center justify-center gap-6 text-sm text-slate-400">
+            <div className="mt-6 flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-6 text-sm text-slate-400">
               <span className="flex items-center gap-1.5"><FileSpreadsheet className="w-4 h-4" /> .XLSX / .CSV</span>
               <span className="flex items-center gap-1.5"><ShieldCheck className="w-4 h-4" /> Processamento Seguro</span>
             </div>
           </div>
 
           {/* Right: Features / Info */}
-          <div className="bg-slate-50 p-8 md:p-12 w-full md:w-80 flex flex-col justify-center">
+          <div className="bg-slate-50 p-6 md:p-12 w-full md:w-80 flex flex-col justify-center">
             <h3 className="text-sm font-bold text-slate-900 uppercase tracking-wider mb-6">Módulos Suportados</h3>
             
             <div className="space-y-4">
@@ -147,9 +148,9 @@ const FileUpload: React.FC<FileUploadProps> = ({ onFileSelect, isProcessing }) =
         </div>
       </div>
 
-      <div className="absolute bottom-6 w-full text-center z-10">
+      <div className="absolute bottom-6 w-full text-center z-10 px-4">
         <p className="text-slate-400 text-sm font-medium">
-          &copy; {new Date().getFullYear()} <a href="https://gameiftech2026.vercel.app/" target="_blank" rel="noopener noreferrer" className="text-slate-400 hover:text-cyan-400 transition-colors">GameIfTech</a>. Todos os direitos reservados.
+          &copy; {new Date().getFullYear()} <a href="https://www.linkedin.com/in/deividfcastro/" target="_blank" rel="noopener noreferrer" className="text-slate-400 hover:text-cyan-400 transition-colors">Deivid Castro</a>. Todos os direitos reservados.
         </p>
       </div>
     </div>

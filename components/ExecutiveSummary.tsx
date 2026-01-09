@@ -22,6 +22,7 @@ import {
 
 interface ExecutiveSummaryProps {
   summary: StructuredSummary;
+  // Prop 'onRequestCustomAnalysis' removida daqui pois agora é global no App
 }
 
 // --- Audio Helper Functions (Streaming Support) ---
@@ -81,7 +82,7 @@ const HighlightCard: React.FC<{ data: SummaryHighlight, icon: React.ReactNode, i
       </div>
       
       <div className="mb-3">
-        <p className="text-2xl font-black text-slate-800 leading-none tracking-tight">{data.value}</p>
+        <p className="text-2xl font-black text-slate-800 leading-none tracking-tight break-words">{data.value}</p>
       </div>
       
       <p className="text-sm font-medium text-slate-600 leading-snug border-t border-slate-100 pt-3 mt-1">
@@ -102,12 +103,18 @@ const ActionPlanRow: React.FC<{ action: ActionPlanItem, index: number }> = ({ ac
 
   return (
     <div className="group flex flex-col sm:flex-row gap-4 p-4 rounded-xl border border-slate-700/50 bg-slate-800/50 hover:bg-slate-800 transition-colors">
-      <div className="flex-shrink-0 mt-1">
+      <div className="flex-shrink-0 mt-1 hidden sm:block">
         <div className="w-6 h-6 rounded-full bg-slate-700 flex items-center justify-center text-xs font-bold text-white group-hover:bg-emerald-500 transition-colors">
           {index + 1}
         </div>
       </div>
       <div className="flex-1">
+        <div className="flex items-center gap-2 mb-2 sm:hidden">
+          <div className="w-5 h-5 rounded-full bg-slate-700 flex items-center justify-center text-[10px] font-bold text-white">
+            {index + 1}
+          </div>
+          <span className="text-xs text-slate-400 font-bold uppercase">Ação Recomendada</span>
+        </div>
         <p className="text-slate-200 font-medium text-sm leading-relaxed mb-2">{action.text}</p>
         <div className="flex flex-wrap gap-2">
           <span className={`px-2 py-0.5 rounded text-[10px] font-bold border ${getImpactColor(action.impact)} uppercase`}>
@@ -196,8 +203,6 @@ const ExecutiveSummary: React.FC<ExecutiveSummaryProps> = ({ summary }) => {
         source.onended = () => {
              const idx = sourcesRef.current.indexOf(source);
              if (idx > -1) sourcesRef.current.splice(idx, 1);
-             // If all done and no more chunks coming (approx logic), we could set isPlaying false here
-             // but we do it outside loop or rely on last chunk.
         };
 
         if (chunkCount === 0) {
@@ -231,7 +236,7 @@ const ExecutiveSummary: React.FC<ExecutiveSummaryProps> = ({ summary }) => {
   }, []);
 
   return (
-    <div className="max-w-7xl mx-auto space-y-8 pb-12">
+    <div className="max-w-7xl mx-auto space-y-6 md:space-y-8 pb-12">
       
       {/* Header Section */}
       <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-2 animate-fade-in-up">
@@ -240,8 +245,8 @@ const ExecutiveSummary: React.FC<ExecutiveSummaryProps> = ({ summary }) => {
             <BrainCircuit className="w-8 h-8 text-white" />
           </div>
           <div>
-            <h2 className="text-3xl font-bold text-slate-900">Análise Executiva & Auditoria</h2>
-            <p className="text-slate-500 text-lg">Diagnóstico crítico gerado por inteligência artificial</p>
+            <h2 className="text-2xl md:text-3xl font-bold text-slate-900">Análise Executiva</h2>
+            <p className="text-slate-500 text-sm md:text-lg">Diagnóstico crítico por inteligência artificial</p>
           </div>
         </div>
 
@@ -250,7 +255,7 @@ const ExecutiveSummary: React.FC<ExecutiveSummaryProps> = ({ summary }) => {
           onClick={handlePlayAudio}
           disabled={isAudioLoading}
           className={`
-            flex items-center gap-3 px-5 py-3 rounded-full font-semibold shadow-lg transition-all transform hover:scale-105 active:scale-95
+            w-full md:w-auto flex items-center justify-center gap-3 px-5 py-3 rounded-full font-semibold shadow-lg transition-all transform hover:scale-105 active:scale-95
             ${isPlaying 
               ? 'bg-rose-100 text-rose-600 border border-rose-200 hover:bg-rose-200' 
               : 'bg-slate-900 text-white hover:bg-slate-800'
@@ -287,7 +292,7 @@ const ExecutiveSummary: React.FC<ExecutiveSummaryProps> = ({ summary }) => {
       {/* Best Decision Banner */}
       {summary.bestDecision && (
         <div 
-          className="bg-gradient-to-r from-violet-600 to-indigo-600 rounded-2xl p-8 shadow-xl text-white relative overflow-hidden animate-fade-in-up"
+          className="bg-gradient-to-r from-violet-600 to-indigo-600 rounded-2xl p-6 md:p-8 shadow-xl text-white relative overflow-hidden animate-fade-in-up"
           style={{ animationDelay: '100ms' }}
         >
           <div className="absolute right-0 top-0 opacity-10 transform translate-x-1/4 -translate-y-1/4">
@@ -300,7 +305,7 @@ const ExecutiveSummary: React.FC<ExecutiveSummaryProps> = ({ summary }) => {
               </span>
               <h3 className="font-bold text-sm uppercase tracking-widest text-indigo-100">Melhor Tomada de Decisão</h3>
             </div>
-            <p className="text-2xl md:text-3xl font-bold leading-tight max-w-4xl">
+            <p className="text-xl md:text-2xl md:text-3xl font-bold leading-tight max-w-4xl">
               "{summary.bestDecision}"
             </p>
           </div>
@@ -308,7 +313,7 @@ const ExecutiveSummary: React.FC<ExecutiveSummaryProps> = ({ summary }) => {
       )}
 
       {/* Highlights Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
         <HighlightCard 
           index={1}
           data={{...summary.highlights.best, type: 'success'}} 
@@ -338,7 +343,7 @@ const ExecutiveSummary: React.FC<ExecutiveSummaryProps> = ({ summary }) => {
           
           {/* Situational Diagnosis */}
           <div 
-            className="bg-white p-8 rounded-2xl border border-slate-200 shadow-sm animate-fade-in-up"
+            className="bg-white p-6 md:p-8 rounded-2xl border border-slate-200 shadow-sm animate-fade-in-up"
             style={{ animationDelay: '500ms' }}
           >
             <div className="flex items-center gap-3 mb-6 border-b border-slate-100 pb-4">
@@ -350,7 +355,7 @@ const ExecutiveSummary: React.FC<ExecutiveSummaryProps> = ({ summary }) => {
                  <p className="text-xs text-slate-400">Análise de consistência e eficiência</p>
               </div>
             </div>
-            <div className="prose prose-slate max-w-none text-slate-600 leading-relaxed text-justify">
+            <div className="prose prose-slate max-w-none text-slate-600 leading-relaxed text-justify text-sm md:text-base">
               {summary.situationalDiagnosis.split('\n').map((paragraph, i) => (
                  <p key={i} className="mb-4 last:mb-0">{paragraph}</p>
               ))}
@@ -406,9 +411,9 @@ const ExecutiveSummary: React.FC<ExecutiveSummaryProps> = ({ summary }) => {
         </div>
 
         {/* Action Plan Column (Narrow) */}
-        <div className="lg:col-span-1">
+        <div className="lg:col-span-1 flex flex-col gap-6">
           <div 
-            className="bg-slate-900 text-white p-6 rounded-2xl shadow-xl h-full animate-fade-in-up flex flex-col"
+            className="bg-slate-900 text-white p-6 rounded-2xl shadow-xl flex-grow animate-fade-in-up flex flex-col"
             style={{ animationDelay: '800ms' }}
           >
              <div className="flex items-center gap-3 mb-8">
@@ -435,7 +440,6 @@ const ExecutiveSummary: React.FC<ExecutiveSummaryProps> = ({ summary }) => {
              </div>
           </div>
         </div>
-
       </div>
     </div>
   );

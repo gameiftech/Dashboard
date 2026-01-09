@@ -48,3 +48,33 @@ export const parseExcelFile = async (file: File): Promise<any[]> => {
     throw new Error("Falha ao ler o arquivo. Verifique se é um Excel válido.");
   }
 };
+
+export const getDemoData = (): any[] => {
+  const data = [];
+  const products = [
+    'Licença ERP Enterprise', 'Consultoria SAP', 'Servidor Dell PowerEdge', 
+    'Notebook Latitude', 'Office 365 Business', 'Suporte Técnico N1', 
+    'Implantação Cloud AWS', 'Treinamento Corporativo'
+  ];
+  const regions = ['Sul', 'Sudeste', 'Nordeste', 'Centro-Oeste'];
+  const vendors = ['Roberto Silva', 'Ana Paula', 'Carlos Eduardo', 'Fernanda Lima'];
+
+  const today = new Date();
+  
+  for (let i = 0; i < 150; i++) {
+    const date = new Date(today.getFullYear(), today.getMonth() - Math.floor(Math.random() * 6), Math.floor(Math.random() * 28) + 1);
+    
+    data.push({
+      "Data Emissão": date.toISOString().split('T')[0], // YYYY-MM-DD
+      "Produto / Serviço": products[Math.floor(Math.random() * products.length)],
+      "Vendedor": vendors[Math.floor(Math.random() * vendors.length)],
+      "Região": regions[Math.floor(Math.random() * regions.length)],
+      "Quantidade": Math.floor(Math.random() * 50) + 1,
+      "Valor Unitário": (Math.random() * 2000 + 100).toFixed(2),
+      "Valor Total": (Math.random() * 50000 + 1000).toFixed(2),
+      "Status": Math.random() > 0.1 ? "Faturado" : "Cancelado"
+    });
+  }
+  
+  return data;
+};

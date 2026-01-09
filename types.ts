@@ -1,3 +1,4 @@
+
 export enum ReportType {
   SALES = 'Vendas',
   STOCK = 'Estoque',
@@ -70,6 +71,7 @@ export interface AnalysisResult {
 }
 
 export enum AppState {
+  LANDING = 'LANDING',
   UPLOAD = 'UPLOAD',
   PROCESSING = 'PROCESSING',
   DASHBOARD = 'DASHBOARD',

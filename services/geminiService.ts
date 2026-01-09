@@ -25,10 +25,10 @@ const optimizePayload = (data: any[]) => {
   return data.map(row => {
     const newRow: any = {};
     nonEmptyKeys.forEach(key => {
-      // Truncate very long strings to save tokens
+      // Relaxed truncation: Allow up to 120 chars to capture full product names/descriptions
       const val = row[key];
-      if (typeof val === 'string' && val.length > 50) {
-        newRow[key] = val.substring(0, 50) + "...";
+      if (typeof val === 'string' && val.length > 120) {
+        newRow[key] = val.substring(0, 120) + "...";
       } else {
         newRow[key] = val;
       }
@@ -37,35 +37,63 @@ const optimizePayload = (data: any[]) => {
   });
 };
 
-export const analyzeData = async (rawData: any[]): Promise<AnalysisResult> => {
-  // Performance: Reduced sample size from 150 to 50. 
-  const sampleSize = 50; 
+export const analyzeData = async (rawData: any[], customInstruction?: string): Promise<AnalysisResult> => {
+  // UPGRADE: Increased sample size significantly to allow deep pattern recognition
+  // Gemini 1.5/2.0 Flash has a massive context window, handling 500-1000 rows is easy and yields better "memory" of the dataset.
+  const sampleSize = 500; 
   const rawSample = rawData.slice(0, sampleSize);
   
-  // Optimization: Clean data to remove empty columns and truncate massive texts
+  // Optimization: Clean data to remove empty columns
   const optimizedSample = optimizePayload(rawSample);
   
   const prompt = `
-    Atue como um **CFO, Auditor e Cientista de Dados Sênior** especialista em Protheus (TOTVS).
-    
-    Dados (Amostra 50 linhas):
+    Você é um **Consultor Sênior de ERP e Cientista de Dados** (Especialista em SAP, Oracle, TOTVS, Microsoft Dynamics).
+    Sua missão é realizar uma **Auditoria Profunda** nos dados fornecidos e gerar inteligência de negócio acionável.
+
+    **CONTEXTO DOS DADOS (Amostra de até 500 registros):**
     ${JSON.stringify(optimizedSample)}
 
-    DIRETRIZES ESTRATÉGICAS:
-    1. **Identificação**: Módulo exato do Protheus.
-    2. **KPIs**: 4 indicadores cruciais.
-    3. **Gráficos (Expandido)**: Gere entre **8 a 10 gráficos distintos**. 
-       - Varie os tipos: Barra, Linha, Pizza, Área.
-       - Explore correlações (Ex: Vendas x Custo, Curva ABC, Sazonalidade, Top 10 Clientes, Top 10 Produtos, Performance por Filial, etc).
-    4. **Resumo Executivo**:
-       - **Highlights**: Campeão, Gargalo, Maior Ticket, Oportunidade.
-       - **Diagnóstico**: Análise situacional profunda (3 parágrafos).
-       - **Pontos Positivos**: O que a empresa está fazendo certo? (Lista).
-       - **Causas Raiz**: Problemas identificados.
-       - **Melhor Decisão**: UMA única frase de impacto estratégico recomendando a decisão mais importante a ser tomada agora.
-       - **Plano de Ação**: Impacto/Esforço.
+    ${customInstruction ? `
+    ⚠️ **SOLICITAÇÃO DE ANÁLISE PERSONALIZADA (ALTA PRIORIDADE)**:
+    O usuário solicitou explicitamente: "${customInstruction}"
+    
+    > REFAÇA TODA A ANÁLISE (KPIs, Gráficos e Resumo) FOCANDO NESTE PEDIDO.
+    > Se o usuário pediu para focar em um produto, cliente ou período, ajuste os KPIs e Gráficos para refletir isso.
+    > No 'Resumo Executivo', destaque explicitamente a resposta para essa solicitação.
+    ` : ''}
 
-    Retorne JSON estrito.
+    **INSTRUÇÕES DE RACIONÍNIO (MEMÓRIA E ANÁLISE):**
+    1. **Identificação do ERP**: Tente inferir a origem (Ex: Tabelas SA1/SB1 indicam ERP Totvs; SKUs longos podem ser SAP; Planilhas simples podem ser Bling/Omie).
+    2. **Analise Coluna por Coluna**: Identifique padrões de datas (Sazonalidade), Valores (Outliers) e Categorias (Pareto 80/20).
+    3. **Precisão Cirúrgica**: Ao citar um problema ou destaque, VOCÊ DEVE CITAR O VALOR EXATO, A DATA OU O NOME DO CLIENTE/PRODUTO que está nos dados. Não seja genérico.
+    4. **Contexto de Negócio**: Se encontrar "Impostos", analise a carga tributária. Se encontrar "Estoque", analise giro. Se for "Vendas", analise ticket médio e churn.
+    
+    **DIRETRIZES DO RELATÓRIO JSON:**
+
+    1. **Identificação**: Determine o módulo (Financeiro, Vendas, Estoque, RH, etc.).
+    2. **KPIs (4 Indicadores)**: 
+       - Calcule métricas reais (Soma total, Ticket Médio, Maior Valor, Margem estimada).
+       - Compare o início da amostra com o fim para determinar a tendência ('up'/'down').
+    3. **Gráficos (GERE EXATAMENTE 12 GRÁFICOS)**: 
+       - **Gráficos 1-8 (Essenciais)**: Visão geral, Top 5, Evolução temporal, Distribuição por Categoria.
+       - **Gráficos 9-12 (Avançados/Estratégicos)**: 
+          * *Obrigatório*: Uma análise de Curva ABC/Pareto (80/20).
+          * *Obrigatório*: Uma análise de Sazonalidade (Ex: Vendas por Dia da Semana ou Semana do Mês).
+          * *Obrigatório*: Uma análise de Dispersão ou Frequência (Ex: Faixas de valor de pedido).
+          * *Obrigatório*: Uma análise de Correlação ou Eficiência (Ex: Custo x Receita ou Ticket Médio por Região).
+       - IMPORTANTE: Use 'dataKey' e 'categoryKey' correspondentes exatamente aos nomes das colunas 'clean' geradas no mapping.
+    4. **Resumo Executivo (O MAIS IMPORTANTE)**:
+       - **Highlights**: O melhor e o pior desempenho com NOMES REAIS dos dados.
+       - **Diagnóstico Situacional**: Escreva um texto EXTENSO, TÉCNICO e DETALHADO (Mínimo de 3 parágrafos robustos e informativos).
+         * Parágrafo 1 (Macro & Performance): Analise o volume total transacionado, a saúde geral dos indicadores e a tendência primária (crescimento/retração) observada no período. Seja descritivo sobre os montantes.
+         * Parágrafo 2 (Eficiência Operacional & Gargalos): Aprofunde-se nos desvios. Identifique concentrações de risco (Pareto), ineficiências em processos específicos, outliers negativos e sazonalidades que afetam a operação. Cite valores e datas.
+         * Parágrafo 3 (Impacto Financeiro & Projeção): Conclua com a visão estratégica. Qual o impacto financeiro real dos problemas encontrados? Qual a projeção de curto prazo se nada for feito? Avalie riscos de liquidez, estoque obsoleto ou perda de margem.
+       - **Melhor Decisão**: Uma ordem direta e estratégica para o CEO baseada nos números.
+       - **Pontos Positivos**: Gere uma lista de 3 A 5 pontos fortes encontrados nos dados.
+       - **Causas Raiz (Pontos de Atenção)**: Gere uma lista de 3 A 5 problemas críticos ou ineficiências encontradas.
+       - **Plano de Ação**: Crie um plano com 3 A 5 ações práticas e diretas para resolver os problemas citados.
+
+    Retorne APENAS JSON seguindo este schema estrito.
   `;
 
   // Helper definition for highlight object schema
@@ -168,13 +196,17 @@ export const analyzeData = async (rawData: any[]): Promise<AnalysisResult> => {
   try {
     const ai = getClient();
 
+    // UPGRADE: Using 'thinkingBudget' to force the model to Reason deeply before answering.
+    // This simulates "saving to memory" by allowing the model to process the 500 rows 
+    // in its hidden chain-of-thought before outputting the JSON.
     const response = await ai.models.generateContent({
       model: 'gemini-3-flash-preview', 
       contents: prompt,
       config: {
         responseMimeType: "application/json",
         responseSchema: responseSchema as any,
-        thinkingConfig: { thinkingBudget: 0 } 
+        maxOutputTokens: 8192, // Increased to allow for detailed JSON
+        thinkingConfig: { thinkingBudget: 4096 } // High budget for deep analysis/context retention
       }
     });
 
@@ -218,16 +250,19 @@ export async function* streamAudioBriefing(summary: StructuredSummary) {
   try {
     const ai = getClient();
 
+    // Contextualizing the speech script to be more professional based on the deeper analysis
     const script = `
-      Olá, executivo. Aqui está a análise de inteligência do seu negócio.
+      Olá. Analisei profundamente os dados do seu relatório ${summary.highlights.best.title ? 'de ' + summary.highlights.best.title.split(' ')[0] : ''}.
       
-      A melhor tomada de decisão estratégica para este cenário é: ${summary.bestDecision}
+      A decisão estratégica recomendada é: ${summary.bestDecision}
       
-      No diagnóstico geral: ${summary.situationalDiagnosis.split('.')[0]}.
+      No diagnóstico detalhado: ${summary.situationalDiagnosis.split('.')[0]}.
       
-      Atenção para o ponto crítico: ${summary.highlights.worst.title} com valor de ${summary.highlights.worst.value}.
+      O ponto crítico identificado foi: ${summary.highlights.worst.title}, atingindo ${summary.highlights.worst.value}.
       
-      Recomendo ação imediata no item: ${summary.actionPlan[0]?.text || 'Verifique o plano de ação'}.
+      Em contrapartida, o destaque positivo é: ${summary.highlights.best.title} com ${summary.highlights.best.value}.
+      
+      Minha recomendação imediata: ${summary.actionPlan[0]?.text || 'Siga o plano de ação detalhado na tela'}.
     `;
 
     const responseStream = await ai.models.generateContentStream({

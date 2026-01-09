@@ -3,13 +3,16 @@ import {
   BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, 
   XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer, AreaChart, Area, ComposedChart 
 } from 'recharts';
-import { AnalysisResult, KPI } from '../types';
-import { ArrowUpRight, ArrowDownRight, Minus, Filter, Calendar, ChevronDown, Check, AlertCircle } from 'lucide-react';
+import { AnalysisResult, KPI, ChartConfig } from '../types';
+import { ArrowUpRight, ArrowDownRight, Minus, Filter, Calendar, ChevronDown, Check, AlertCircle, BarChart2 } from 'lucide-react';
 
 interface DashboardViewProps {
   data: AnalysisResult;
   isPrivacyMode: boolean;
-  hideControls?: boolean; // New prop for PDF generation
+  hideControls?: boolean;
+  disableAnimations?: boolean;
+  customCharts?: ChartConfig[]; // Permite passar uma lista filtrada de gráficos
+  showKPIs?: boolean; // Permite ocultar os KPIs
 }
 
 const COLORS = ['#0ea5e9', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899', '#6366f1', '#14b8a6'];
@@ -100,19 +103,19 @@ const KPICard: React.FC<{ kpi: KPI, isPrivacy: boolean, index: number }> = ({ kp
       style={{ animationDelay: `${index * 100}ms` }}
     >
       <div className="flex justify-between items-start mb-2">
-        <p className="text-sm font-semibold text-slate-500 uppercase tracking-wide">{kpi.label}</p>
-        <span className={`flex items-center gap-1 text-xs font-bold px-2.5 py-1 rounded-full border ${getTrendColor()}`}>
+        <p className="text-sm font-semibold text-slate-500 uppercase tracking-wide truncate pr-2">{kpi.label}</p>
+        <span className={`flex items-center gap-1 text-xs font-bold px-2.5 py-1 rounded-full border ${getTrendColor()} whitespace-nowrap`}>
           {getTrendIcon()}
           {kpi.trendValue}
         </span>
       </div>
       <h3 
-        className={`text-3xl font-extrabold text-slate-900 mb-2 tracking-tight group-hover:text-blue-600 transition-all ${isPrivacy ? 'blur-md select-none opacity-50' : ''}`}
+        className={`text-2xl md:text-3xl font-extrabold text-slate-900 mb-2 tracking-tight group-hover:text-blue-600 transition-all break-words ${isPrivacy ? 'blur-md select-none opacity-50' : ''}`}
         title={isPrivacy ? "Oculto pelo modo de privacidade" : kpi.value}
       >
         {kpi.value}
       </h3>
-      <p className="text-xs text-slate-400 font-medium">{kpi.description}</p>
+      <p className="text-xs text-slate-400 font-medium line-clamp-2">{kpi.description}</p>
     </div>
   );
 };
@@ -137,7 +140,14 @@ const CustomTooltip = ({ active, payload, label, isPrivacy }: any) => {
   return null;
 };
 
-const DashboardView: React.FC<DashboardViewProps> = ({ data, isPrivacyMode, hideControls = false }) => {
+const DashboardView: React.FC<DashboardViewProps> = ({ 
+  data, 
+  isPrivacyMode, 
+  hideControls = false, 
+  disableAnimations = false,
+  customCharts,
+  showKPIs = true
+}) => {
   // Filters State
   const [dateRangeLabel, setDateRangeLabel] = useState('Todo o Período');
   const [showDateMenu, setShowDateMenu] = useState(false);
@@ -221,16 +231,27 @@ const DashboardView: React.FC<DashboardViewProps> = ({ data, isPrivacyMode, hide
 
   // 4. Existing Dynamic Charts (Hybrid Logic)
   const dynamicCharts = useMemo(() => {
-    if (!isFiltered) {
-      return data.charts;
+    // If custom charts provided (e.g. for PDF export slice), use them
+    const sourceCharts = customCharts || data.charts;
+
+    if (!isFiltered && customCharts) {
+        // Even if not filtered by date, we might need to process the data for the charts if they need aggregation
+        // But assuming customCharts passed are already configured or we just use raw data mapping logic below
     }
 
-    return data.charts.map(chart => {
+    // Logic to re-calculate chart data based on filters
+    return sourceCharts.map(chart => {
+      // If data is already pre-calculated/static (like in demo) AND no filter, just return
+      if (!isFiltered && chart.data.length > 0 && !customCharts) return chart;
+      
+      // If we need to recalculate (filtered OR custom slice needs data population)
       if (!chart.categoryKey || !chart.dataKey) return chart;
 
       const groupingMap = new Map<string, number>();
 
-      filteredRows.forEach(row => {
+      const rowsToProcess = isFiltered ? filteredRows : data.cleanData;
+
+      rowsToProcess.forEach(row => {
         const catRaw = row[chart.categoryKey];
         const category = catRaw ? String(catRaw) : 'N/A';
         const val = parseNumber(row[chart.dataKey]);
@@ -246,10 +267,13 @@ const DashboardView: React.FC<DashboardViewProps> = ({ data, isPrivacyMode, hide
         if (chart.type === 'pie') newData = newData.slice(0, 8); 
         else newData = newData.slice(0, 15); // Limit bars
       }
+      
+      // If the chart had static data but we are in print mode (customCharts), ensure we have data
+      if (newData.length === 0 && chart.data.length > 0) return chart;
 
       return { ...chart, data: newData };
     });
-  }, [data.charts, filteredRows, isFiltered]);
+  }, [data.charts, filteredRows, isFiltered, customCharts, data.cleanData]);
 
 
   const dateOptions = [
@@ -261,32 +285,32 @@ const DashboardView: React.FC<DashboardViewProps> = ({ data, isPrivacyMode, hide
   ];
 
   return (
-    <div className="space-y-8 p-2">
+    <div className="space-y-6 md:space-y-8 p-1 md:p-2">
       
       {/* --- Filter Bar --- */}
       {/* Render only if controls are not hidden (for PDF export) */}
       {!hideControls && (
-      <div className="relative z-30 flex flex-col xl:flex-row items-center justify-between bg-white p-4 rounded-xl border border-slate-200 shadow-sm animate-fade-in-up gap-4 xl:gap-0">
-         <div className="flex flex-wrap items-center gap-3 w-full xl:w-auto">
-            
+      <div className="relative z-30 flex flex-col xl:flex-row items-start xl:items-center justify-between bg-white p-4 rounded-xl border border-slate-200 shadow-sm animate-fade-in-up gap-4 xl:gap-0">
+         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 w-full xl:w-auto">
+            {/* ... Filters Logic ... */}
             {columns.dateCol ? (
               <>
-                <div className="relative">
+                <div className="relative w-full sm:w-auto">
                   <button 
                     onClick={() => setShowDateMenu(!showDateMenu)}
-                    className="flex items-center gap-2 text-slate-700 bg-white px-4 py-2.5 rounded-lg border border-slate-200 text-sm font-medium hover:bg-slate-50 hover:border-slate-300 transition-all shadow-sm active:scale-95 w-48 justify-between"
+                    className="flex items-center gap-2 text-slate-700 bg-white px-4 py-2.5 rounded-lg border border-slate-200 text-sm font-medium hover:bg-slate-50 hover:border-slate-300 transition-all shadow-sm active:scale-95 w-full sm:w-48 justify-between"
                   >
-                    <div className="flex items-center gap-2">
-                      <Calendar className="w-4 h-4 text-slate-500" />
+                    <div className="flex items-center gap-2 overflow-hidden">
+                      <Calendar className="w-4 h-4 text-slate-500 shrink-0" />
                       <span className="truncate">{dateRangeLabel}</span>
                     </div>
-                    <ChevronDown className={`w-3 h-3 text-slate-400 transition-transform ${showDateMenu ? 'rotate-180' : ''}`} />
+                    <ChevronDown className={`w-3 h-3 text-slate-400 transition-transform shrink-0 ${showDateMenu ? 'rotate-180' : ''}`} />
                   </button>
 
                   {showDateMenu && (
                     <>
                       <div className="fixed inset-0 z-10" onClick={() => setShowDateMenu(false)}></div>
-                      <div className="absolute top-full left-0 mt-2 w-56 bg-white rounded-xl shadow-xl border border-slate-100 z-20 overflow-hidden animate-fade-in-up">
+                      <div className="absolute top-full left-0 mt-2 w-full sm:w-56 bg-white rounded-xl shadow-xl border border-slate-100 z-20 overflow-hidden animate-fade-in-up">
                         <div className="py-1">
                           {dateOptions.map((opt) => (
                             <button
@@ -305,10 +329,10 @@ const DashboardView: React.FC<DashboardViewProps> = ({ data, isPrivacyMode, hide
                     </>
                   )}
                 </div>
-
-                <div className="flex items-center gap-2 bg-white px-3 py-2 rounded-lg border border-slate-200 shadow-sm hover:border-slate-300 transition-colors">
-                  <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
-                    <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">De</span>
+                {/* Date Inputs */}
+                <div className="flex items-center gap-2 bg-white px-3 py-2 rounded-lg border border-slate-200 shadow-sm hover:border-slate-300 transition-colors w-full sm:w-auto overflow-x-auto">
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider shrink-0">De</span>
                     <input 
                       type="date" 
                       value={startDate}
@@ -316,12 +340,12 @@ const DashboardView: React.FC<DashboardViewProps> = ({ data, isPrivacyMode, hide
                         setStartDate(e.target.value);
                         setDateRangeLabel('Personalizado');
                       }}
-                      className="text-sm text-slate-600 bg-transparent border-none focus:ring-0 p-0 outline-none w-28 font-medium"
+                      className="text-sm text-slate-600 bg-transparent border-none focus:ring-0 p-0 outline-none w-28 md:w-auto font-medium"
                     />
                   </div>
-                  <div className="hidden sm:block w-px h-4 bg-slate-200 mx-1"></div>
-                  <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-2">
-                    <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Até</span>
+                  <div className="w-px h-4 bg-slate-200 mx-1 shrink-0"></div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider shrink-0">Até</span>
                     <input 
                       type="date" 
                       value={endDate}
@@ -329,20 +353,20 @@ const DashboardView: React.FC<DashboardViewProps> = ({ data, isPrivacyMode, hide
                         setEndDate(e.target.value);
                         setDateRangeLabel('Personalizado');
                       }}
-                      className="text-sm text-slate-600 bg-transparent border-none focus:ring-0 p-0 outline-none w-28 font-medium"
+                      className="text-sm text-slate-600 bg-transparent border-none focus:ring-0 p-0 outline-none w-28 md:w-auto font-medium"
                     />
                   </div>
                 </div>
               </>
             ) : (
-               <div className="flex items-center gap-2 px-3 py-2 bg-slate-50 border border-slate-100 rounded-lg text-slate-400 text-xs italic">
+               <div className="flex items-center gap-2 px-3 py-2 bg-slate-50 border border-slate-100 rounded-lg text-slate-400 text-xs italic w-full">
                  <AlertCircle className="w-3 h-3" />
                  Filtro de data indisponível
                </div>
             )}
          </div>
          
-         <div className="text-xs text-slate-400 font-medium uppercase tracking-wider flex items-center gap-2">
+         <div className="text-xs text-slate-400 font-medium uppercase tracking-wider flex items-center gap-2 pt-2 xl:pt-0 border-t xl:border-t-0 border-slate-100 w-full xl:w-auto">
             <span className={`w-2 h-2 rounded-full ${isFiltered ? 'bg-blue-500 animate-pulse' : 'bg-emerald-500'}`}></span>
             Visão Geral / {data.reportType}
          </div>
@@ -350,28 +374,30 @@ const DashboardView: React.FC<DashboardViewProps> = ({ data, isPrivacyMode, hide
       )}
 
       {/* --- KPI Grid --- */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 relative z-10">
+      {showKPIs && (
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6 relative z-10">
         {data.kpis.map((kpi, idx) => (
           <KPICard key={idx} kpi={kpi} isPrivacy={isPrivacyMode} index={idx} />
         ))}
       </div>
+      )}
 
       {/* --- Dynamic AI Charts --- */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-8 relative z-0">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-8 relative z-0">
         {dynamicCharts.map((chart, idx) => {
           const totalValue = chart.type === 'pie' ? chart.data.reduce((acc, curr) => acc + curr.value, 0) : 0;
           const hasData = chart.data.length > 0 && chart.data.some(d => d.value > 0);
-
+          
           return (
+            <React.Fragment key={idx}>
             <div 
-              key={idx} 
-              className="bg-white p-8 rounded-2xl border border-slate-200 shadow-sm flex flex-col transition-colors animate-fade-in-up"
+              className="bg-white p-4 md:p-8 rounded-2xl border border-slate-200 shadow-sm flex flex-col transition-colors animate-fade-in-up"
               style={{ animationDelay: `${(idx + 4) * 100}ms` }}
             >
               <div className="mb-6">
-                 <h4 className="text-lg font-bold text-slate-900">{chart.title}</h4>
+                 <h4 className="text-lg font-bold text-slate-900 leading-tight">{chart.title}</h4>
                  {!hideControls && (
-                 <div className="flex items-center justify-between">
+                 <div className="flex items-center justify-between flex-wrap gap-2">
                     <p className="text-xs text-slate-400 mt-1">
                       {isFiltered ? 'Dados filtrados dinamicamente' : 'Visão consolidada'}
                     </p>
@@ -382,7 +408,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({ data, isPrivacyMode, hide
                  )}
               </div>
               
-              <div className={`h-80 w-full flex-grow transition-all duration-500 ${isPrivacyMode ? 'filter blur-[3px] opacity-80' : ''}`}>
+              <div className={`h-64 md:h-80 w-full flex-grow transition-all duration-500 ${isPrivacyMode ? 'filter blur-[3px] opacity-80' : ''}`}>
                 {!hasData ? (
                   <div className="h-full flex flex-col items-center justify-center text-slate-400">
                     <Filter className="w-8 h-8 mb-2 opacity-20" />
@@ -400,11 +426,27 @@ const DashboardView: React.FC<DashboardViewProps> = ({ data, isPrivacyMode, hide
                         </linearGradient>
                       </defs>
                       <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                      <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 11}} dy={10} />
-                      <YAxis axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 11}} tickFormatter={(v) => formatValue(v, false)} />
+                      <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 11}} dy={10} interval="preserveStartEnd" minTickGap={30} />
+                      <YAxis axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 11}} tickFormatter={(v) => formatValue(v, false)} width={40} />
                       <Tooltip cursor={{fill: '#f8fafc'}} content={<CustomTooltip isPrivacy={false} />} />
-                      <Bar dataKey="value" name={data.reportType === 'Vendas' ? 'Valor' : 'Qtd'} fill={`url(#gradBar-${idx})`} radius={[4, 4, 0, 0]} maxBarSize={50} />
-                      <Line type="monotone" dataKey="value" stroke="#f59e0b" strokeWidth={2} dot={false} strokeDasharray="5 5" opacity={0.5} />
+                      <Bar 
+                        dataKey="value" 
+                        name={data.reportType === 'Vendas' ? 'Valor' : 'Qtd'} 
+                        fill={`url(#gradBar-${idx})`} 
+                        radius={[4, 4, 0, 0]} 
+                        maxBarSize={50}
+                        isAnimationActive={!disableAnimations} 
+                      />
+                      <Line 
+                        type="monotone" 
+                        dataKey="value" 
+                        stroke="#f59e0b" 
+                        strokeWidth={2} 
+                        dot={false} 
+                        strokeDasharray="5 5" 
+                        opacity={0.5} 
+                        isAnimationActive={!disableAnimations}
+                      />
                     </ComposedChart>
                   ) : chart.type === 'pie' ? (
                     <PieChart>
@@ -412,10 +454,11 @@ const DashboardView: React.FC<DashboardViewProps> = ({ data, isPrivacyMode, hide
                         data={chart.data}
                         cx="50%"
                         cy="50%"
-                        innerRadius={70}
-                        outerRadius={100}
+                        innerRadius={60}
+                        outerRadius={80}
                         paddingAngle={4}
                         dataKey="value"
+                        isAnimationActive={!disableAnimations}
                       >
                         {chart.data.map((entry, index) => (
                           <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} strokeWidth={0} />
@@ -427,12 +470,13 @@ const DashboardView: React.FC<DashboardViewProps> = ({ data, isPrivacyMode, hide
                         verticalAlign="middle" 
                         align="right"
                         iconType="circle"
+                        wrapperStyle={{ fontSize: '12px', right: 0 }}
                         formatter={(value, entry: any) => {
                           const percent = totalValue > 0 ? ((entry.payload.value / totalValue) * 100).toFixed(1) : 0;
                           return (
-                            <span className="text-slate-600 text-xs font-medium ml-2">
-                              {value} 
-                              <span className="text-slate-400 ml-1">
+                            <span className="text-slate-600 text-[10px] md:text-xs font-medium ml-2">
+                              {value.length > 15 ? value.substring(0, 15) + '...' : value}
+                              <span className="text-slate-400 ml-1 block md:inline">
                                 ({formatValue(entry.payload.value, false)} • {percent}%)
                               </span>
                             </span>
@@ -449,16 +493,24 @@ const DashboardView: React.FC<DashboardViewProps> = ({ data, isPrivacyMode, hide
                         </linearGradient>
                       </defs>
                       <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
-                      <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 11}} dy={10} />
-                      <YAxis axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 11}} tickFormatter={(v) => formatValue(v, false)} />
+                      <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 11}} dy={10} minTickGap={30} />
+                      <YAxis axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 11}} tickFormatter={(v) => formatValue(v, false)} width={40} />
                       <Tooltip content={<CustomTooltip isPrivacy={false} />} />
-                      <Area type="monotone" dataKey="value" stroke="#0ea5e9" strokeWidth={3} fill={`url(#colorValue-${idx})`} />
+                      <Area 
+                        type="monotone" 
+                        dataKey="value" 
+                        stroke="#0ea5e9" 
+                        strokeWidth={3} 
+                        fill={`url(#colorValue-${idx})`} 
+                        isAnimationActive={!disableAnimations}
+                      />
                     </AreaChart>
                   )}
                 </ResponsiveContainer>
                 )}
               </div>
             </div>
+            </React.Fragment>
           );
         })}
       </div>

@@ -53,32 +53,32 @@ const DataTableView: React.FC<DataTableViewProps> = ({ data, isPrivacyMode }) =>
   return (
     <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden flex flex-col h-[calc(100vh-140px)]">
       {/* Table Status Bar */}
-      <div className="px-4 py-3 border-b border-slate-200 flex justify-between items-center bg-slate-50">
+      <div className="px-4 py-3 border-b border-slate-200 flex flex-col sm:flex-row justify-between items-start sm:items-center bg-slate-50 gap-2">
         <div className="flex items-center gap-2">
             <h3 className="font-bold text-slate-700">Dados Detalhados</h3>
-            <span className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full text-xs font-semibold">
+            <span className="px-2 py-0.5 bg-blue-100 text-blue-700 rounded-full text-xs font-semibold whitespace-nowrap">
                 {filteredData.length} registros
             </span>
             {isPrivacyMode && (
-              <span className="ml-2 flex items-center gap-1 text-xs text-amber-600 bg-amber-50 px-2 py-0.5 rounded border border-amber-100">
+              <span className="ml-2 flex items-center gap-1 text-xs text-amber-600 bg-amber-50 px-2 py-0.5 rounded border border-amber-100 whitespace-nowrap">
                 <EyeOff className="w-3 h-3" />
-                Mascaramento Ativo
+                <span className="hidden sm:inline">Mascaramento Ativo</span>
               </span>
             )}
         </div>
         <div className="text-xs text-slate-400 italic">
-            Use a segunda linha do cabeçalho para filtrar colunas específicas
+            Use a segunda linha para filtrar
         </div>
       </div>
 
-      {/* Scrollable Table Area */}
-      <div className="flex-1 overflow-auto custom-scrollbar">
-        <table className="w-full text-sm text-left border-collapse">
+      {/* Scrollable Table Area - Added wrapper for horizontal scroll */}
+      <div className="flex-1 overflow-auto custom-scrollbar w-full relative">
+        <table className="w-full text-sm text-left border-collapse min-w-[800px]">
           <thead className="sticky top-0 z-20 shadow-sm">
             {/* 1st Line: Titles */}
             <tr className="bg-slate-100 text-slate-600 font-bold text-xs uppercase tracking-wider">
               {headers.map(header => (
-                <th key={header} className="px-4 py-3 border-b border-r border-slate-200 last:border-r-0 whitespace-nowrap">
+                <th key={header} className="px-4 py-3 border-b border-r border-slate-200 last:border-r-0 whitespace-nowrap bg-slate-100">
                   {header}
                 </th>
               ))}
@@ -86,7 +86,7 @@ const DataTableView: React.FC<DataTableViewProps> = ({ data, isPrivacyMode }) =>
             {/* 2nd Line: Filters */}
             <tr className="bg-slate-50">
               {headers.map(header => (
-                <th key={`filter-${header}`} className="p-1 border-b border-r border-slate-200 last:border-r-0">
+                <th key={`filter-${header}`} className="p-1 border-b border-r border-slate-200 last:border-r-0 bg-slate-50">
                   <div className="relative">
                     <input 
                         type="text" 

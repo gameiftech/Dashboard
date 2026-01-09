@@ -1,5 +1,5 @@
 {
-  "name": "Protheus AI Analyst",
-  "description": "An intelligent Micro SaaS for analyzing TOTVS Protheus ERP reports, generating automatic dashboards, and providing executive insights using Gemini AI.",
+  "name": "Enterprise AI Analyst",
+  "description": "An intelligent Micro SaaS for analyzing Corporate ERP reports, generating automatic dashboards, and providing executive insights using Gemini AI.",
   "requestFramePermissions": []
 }
