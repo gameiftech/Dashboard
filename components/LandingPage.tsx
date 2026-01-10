@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
 import { supabase } from '../services/supabaseClient';
-import { Sparkles, ArrowRight, BarChart3, ShieldCheck, Zap, BrainCircuit, FileSpreadsheet, X, Mail, Lock, User, Building2, Loader2, LogIn, AlertCircle, Check } from 'lucide-react';
+import { Sparkles, ArrowRight, BarChart3, ShieldCheck, Zap, BrainCircuit, FileSpreadsheet, X, Mail, Lock, User, Building2, Loader2, LogIn, AlertCircle, Check, KeyRound } from 'lucide-react';
 
 interface LandingPageProps {
   onStart: () => void;
 }
 
-type AuthMode = 'none' | 'login' | 'register';
+type AuthMode = 'none' | 'login' | 'register' | 'forgot_password';
 
 const LandingPage: React.FC<LandingPageProps> = ({ onStart }) => {
   const [authMode, setAuthMode] = useState<AuthMode>('none');
@@ -39,7 +39,7 @@ const LandingPage: React.FC<LandingPageProps> = ({ onStart }) => {
         });
         if (error) throw error;
         // Success: App.tsx listener will handle redirection
-      } else {
+      } else if (authMode === 'register') {
         const { error } = await supabase.auth.signUp({
           email: cleanEmail,
           password,
@@ -52,6 +52,20 @@ const LandingPage: React.FC<LandingPageProps> = ({ onStart }) => {
         });
         if (error) throw error;
         setAuthSuccess("Cadastro realizado! Verifique seu e-mail para confirmar a conta ou faça login.");
+      } else if (authMode === 'forgot_password') {
+        // CORREÇÃO DE SEGURANÇA: Evitar URLs blob: no redirecionamento
+        let redirectUrl = window.location.origin;
+        if (window.location.protocol === 'blob:' || window.location.href.includes('blob:')) {
+            // Em ambientes preview (blob), não passamos redirectUrl. 
+            // O Supabase usará a "Site URL" configurada no dashboard.
+            redirectUrl = undefined as any; 
+        }
+
+        const { error } = await supabase.auth.resetPasswordForEmail(cleanEmail, {
+          redirectTo: redirectUrl, 
+        });
+        if (error) throw error;
+        setAuthSuccess("Link de recuperação enviado! Verifique sua caixa de entrada.");
       }
     } catch (error: any) {
       console.error("Auth Error:", error);
@@ -85,6 +99,33 @@ const LandingPage: React.FC<LandingPageProps> = ({ onStart }) => {
     setAuthMode(mode);
     setAuthError(null);
     setAuthSuccess(null);
+  };
+
+  const getModalTitle = () => {
+    switch(authMode) {
+      case 'login': return 'Bem-vindo de volta';
+      case 'register': return 'Crie sua conta gratuita';
+      case 'forgot_password': return 'Recuperar Senha';
+      default: return '';
+    }
+  };
+
+  const getModalDescription = () => {
+    switch(authMode) {
+      case 'login': return 'Acesse seus painéis e relatórios salvos.';
+      case 'register': return 'Comece a analisar seus dados em segundos.';
+      case 'forgot_password': return 'Enviaremos um link para redefinir sua senha.';
+      default: return '';
+    }
+  };
+
+  const getModalIcon = () => {
+    switch(authMode) {
+      case 'login': return <LogIn className="w-6 h-6" />;
+      case 'register': return <User className="w-6 h-6" />;
+      case 'forgot_password': return <KeyRound className="w-6 h-6" />;
+      default: return null;
+    }
   };
 
   return (
@@ -315,15 +356,13 @@ const LandingPage: React.FC<LandingPageProps> = ({ onStart }) => {
 
             <div className="text-center mb-6">
                <div className="w-12 h-12 bg-gradient-to-br from-cyan-500 to-blue-600 rounded-xl flex items-center justify-center font-bold text-white shadow-lg shadow-cyan-500/20 mx-auto mb-4">
-                {authMode === 'login' ? <LogIn className="w-6 h-6" /> : <User className="w-6 h-6" />}
+                {getModalIcon()}
                </div>
                <h2 className="text-2xl font-bold text-white mb-2">
-                 {authMode === 'login' ? 'Bem-vindo de volta' : 'Crie sua conta gratuita'}
+                 {getModalTitle()}
                </h2>
                <p className="text-slate-400 text-sm">
-                 {authMode === 'login' 
-                    ? 'Acesse seus painéis e relatórios salvos.' 
-                    : 'Comece a analisar seus dados em segundos.'}
+                 {getModalDescription()}
                </p>
             </div>
 
@@ -389,21 +428,36 @@ const LandingPage: React.FC<LandingPageProps> = ({ onStart }) => {
                 </div>
               </div>
 
-              <div className="space-y-1">
-                <label className="text-xs font-semibold text-slate-400 uppercase ml-1">Senha</label>
-                <div className="relative">
-                  <Lock className="w-5 h-5 text-slate-500 absolute left-3 top-3" />
-                  <input 
-                    type="password" 
-                    required
-                    minLength={6}
-                    placeholder="••••••••" 
-                    className="w-full bg-slate-800 border border-slate-700 text-white rounded-xl py-2.5 pl-10 pr-4 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all placeholder:text-slate-600"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                  />
+              {authMode !== 'forgot_password' && (
+                <div className="space-y-1">
+                  <div className="flex justify-between items-center ml-1">
+                    <label className="text-xs font-semibold text-slate-400 uppercase">Senha</label>
+                  </div>
+                  <div className="relative">
+                    <Lock className="w-5 h-5 text-slate-500 absolute left-3 top-3" />
+                    <input 
+                      type="password" 
+                      required
+                      minLength={6}
+                      placeholder="••••••••" 
+                      className="w-full bg-slate-800 border border-slate-700 text-white rounded-xl py-2.5 pl-10 pr-4 focus:outline-none focus:ring-2 focus:ring-blue-500 transition-all placeholder:text-slate-600"
+                      value={password}
+                      onChange={(e) => setPassword(e.target.value)}
+                    />
+                  </div>
+                  {authMode === 'login' && (
+                    <div className="flex justify-end mt-1">
+                      <button 
+                        type="button"
+                        onClick={() => switchMode('forgot_password')}
+                        className="text-xs text-blue-400 hover:text-blue-300 transition-colors"
+                      >
+                        Esqueci minha senha
+                      </button>
+                    </div>
+                  )}
                 </div>
-              </div>
+              )}
 
               <button 
                 type="submit" 
@@ -414,23 +468,37 @@ const LandingPage: React.FC<LandingPageProps> = ({ onStart }) => {
                   <Loader2 className="w-5 h-5 animate-spin" />
                 ) : (
                   <>
-                    {authMode === 'login' ? 'Acessar Dashboard' : 'Cadastrar e Começar'}
-                    <ArrowRight className="w-5 h-5" />
+                    {authMode === 'login' && 'Acessar Dashboard'}
+                    {authMode === 'register' && 'Cadastrar e Começar'}
+                    {authMode === 'forgot_password' && 'Enviar Link de Recuperação'}
+                    {authMode !== 'forgot_password' && <ArrowRight className="w-5 h-5" />}
                   </>
                 )}
               </button>
             </form>
 
             <div className="mt-6 text-center">
-              <p className="text-slate-500 text-sm">
-                {authMode === 'login' ? 'Ainda não tem uma conta? ' : 'Já possui uma conta? '}
-                <button 
-                  onClick={() => switchMode(authMode === 'login' ? 'register' : 'login')}
-                  className="text-blue-400 hover:text-blue-300 font-semibold underline transition-colors"
-                >
-                  {authMode === 'login' ? 'Cadastre-se grátis' : 'Fazer login'}
-                </button>
-              </p>
+              {authMode === 'forgot_password' ? (
+                 <p className="text-slate-500 text-sm">
+                   Lembrou sua senha?{' '}
+                   <button 
+                     onClick={() => switchMode('login')}
+                     className="text-blue-400 hover:text-blue-300 font-semibold underline transition-colors"
+                   >
+                     Voltar para login
+                   </button>
+                 </p>
+              ) : (
+                <p className="text-slate-500 text-sm">
+                  {authMode === 'login' ? 'Ainda não tem uma conta? ' : 'Já possui uma conta? '}
+                  <button 
+                    onClick={() => switchMode(authMode === 'login' ? 'register' : 'login')}
+                    className="text-blue-400 hover:text-blue-300 font-semibold underline transition-colors"
+                  >
+                    {authMode === 'login' ? 'Cadastre-se grátis' : 'Fazer login'}
+                  </button>
+                </p>
+              )}
             </div>
 
           </div>

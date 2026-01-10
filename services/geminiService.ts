@@ -74,13 +74,16 @@ export const analyzeData = async (rawData: any[], customInstruction?: string): P
     2. **KPIs (4 Indicadores)**: 
        - Calcule métricas reais (Soma total, Ticket Médio, Maior Valor, Margem estimada).
        - Compare o início da amostra com o fim para determinar a tendência ('up'/'down').
-    3. **Gráficos (GERE EXATAMENTE 12 GRÁFICOS)**: 
-       - **Gráficos 1-8 (Essenciais)**: Visão geral, Top 5, Evolução temporal, Distribuição por Categoria.
-       - **Gráficos 9-12 (Avançados/Estratégicos)**: 
-          * *Obrigatório*: Uma análise de Curva ABC/Pareto (80/20).
-          * *Obrigatório*: Uma análise de Sazonalidade (Ex: Vendas por Dia da Semana ou Semana do Mês).
-          * *Obrigatório*: Uma análise de Dispersão ou Frequência (Ex: Faixas de valor de pedido).
-          * *Obrigatório*: Uma análise de Correlação ou Eficiência (Ex: Custo x Receita ou Ticket Médio por Região).
+    3. **Gráficos (GERE EXATAMENTE 14 GRÁFICOS)**: 
+       - **Diversidade Visual**: Utilize tipos variados ('bar', 'line', 'pie', 'area', 'donut', 'horizontalBar').
+       - **Gráficos 1-8 (Visão Geral)**: Top 5, Evolução temporal, Distribuição Geográfica ou Categórica (Use 'pie' ou 'bar').
+       - **Gráficos 9-12 (Avançados)**: 
+          * *Obrigatório*: Curva ABC/Pareto (80/20).
+          * *Obrigatório*: Sazonalidade (Dia da Semana ou Semana do Mês).
+          * *Obrigatório*: Dispersão ou Frequência (Ex: Faixas de valor).
+       - **Gráficos 13-14 (Especiais)**:
+          * *Gráfico 13 (Donut)*: Uma análise de proporção detalhada (Ex: Share de Mercado, Status de Pedidos, Categorias de Despesa). Use type: 'donut'.
+          * *Gráfico 14 (Barras Horizontais)*: Um ranking extenso ou comparativo de performance (Ex: Top 10 Clientes, Performance por Vendedor). Use type: 'horizontalBar'.
        - IMPORTANTE: Use 'dataKey' e 'categoryKey' correspondentes exatamente aos nomes das colunas 'clean' geradas no mapping.
     4. **Resumo Executivo (O MAIS IMPORTANTE)**:
        - **Highlights**: O melhor e o pior desempenho com NOMES REAIS dos dados.
@@ -132,7 +135,7 @@ export const analyzeData = async (rawData: any[], customInstruction?: string): P
           type: Type.OBJECT,
           properties: {
             title: { type: Type.STRING },
-            type: { type: Type.STRING, enum: ['bar', 'line', 'pie', 'area'] },
+            type: { type: Type.STRING, enum: ['bar', 'line', 'pie', 'area', 'donut', 'horizontalBar'] },
             dataKey: { type: Type.STRING },
             categoryKey: { type: Type.STRING },
             data: {

@@ -19,9 +19,43 @@ const COLORS = ['#0ea5e9', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899'
 
 // --- Helper Functions ---
 
-const formatValue = (val: number, isPrivacy: boolean) => {
+type ValueType = 'currency' | 'number';
+
+// Helper para detectar se é Dinheiro ou Quantidade baseado na chave de dados ou tipo de relatório
+const detectValueType = (dataKey: string, reportType: string): ValueType => {
+  const key = dataKey.toLowerCase();
+  // Palavras-chave que indicam quantidade
+  if (key.includes('qtd') || key.includes('quantidade') || key.includes('count') || key.includes('pedidos') || key.includes('itens')) {
+    return 'number';
+  }
+  // Palavras-chave que indicam valor
+  if (key.includes('valor') || key.includes('total') || key.includes('preço') || key.includes('receita') || key.includes('custo') || key.includes('ticket')) {
+    return 'currency';
+  }
+  // Fallback baseado no tipo de relatório
+  if (reportType === 'Vendas' || reportType === 'Financeiro' || reportType === 'Compras' || reportType === 'Fiscal') {
+    return 'currency';
+  }
+  return 'number';
+};
+
+const formatValue = (val: number, isPrivacy: boolean, type: ValueType, context: 'axis' | 'tooltip' = 'tooltip') => {
   if (isPrivacy) return "••••";
-  return new Intl.NumberFormat('pt-BR', { maximumFractionDigits: 2, notation: "compact", compactDisplay: "short" }).format(val);
+
+  if (type === 'currency') {
+    if (context === 'axis') {
+      // Eixo compacto: R$ 1k
+      return `R$ ${new Intl.NumberFormat('pt-BR', { notation: "compact", compactDisplay: "short" }).format(val)}`;
+    }
+    // Tooltip completo: R$ 1.000,00
+    return new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val);
+  }
+
+  // Quantidade
+  if (context === 'axis') {
+    return new Intl.NumberFormat('pt-BR', { notation: "compact" }).format(val);
+  }
+  return `${new Intl.NumberFormat('pt-BR').format(val)} QTD`;
 };
 
 // Robust Number Parsing (PT-BR support)
@@ -120,7 +154,7 @@ const KPICard: React.FC<{ kpi: KPI, isPrivacy: boolean, index: number }> = ({ kp
   );
 };
 
-const CustomTooltip = ({ active, payload, label, isPrivacy }: any) => {
+const CustomTooltip = ({ active, payload, label, isPrivacy, valueType }: any) => {
   if (active && payload && payload.length) {
     return (
       <div className="bg-slate-900/95 text-white p-4 rounded-xl shadow-2xl backdrop-blur-sm border border-slate-700 z-50">
@@ -128,9 +162,12 @@ const CustomTooltip = ({ active, payload, label, isPrivacy }: any) => {
         {payload.map((entry: any, index: number) => (
           <div key={index} className="flex items-center gap-2 mb-1">
              <div className="w-2 h-2 rounded-full" style={{backgroundColor: entry.color || entry.fill}}></div>
-             <span className="text-xs text-slate-300">{entry.name}:</span>
+             {/* Use entry.name only if it differs from 'value' or generic keys */}
+             {entry.name && entry.name !== 'value' && entry.name !== 'count' && (
+                <span className="text-xs text-slate-300">{entry.name}:</span>
+             )}
              <span className={`text-sm font-bold ${isPrivacy ? 'blur-sm' : ''}`}>
-               {isPrivacy ? '••••' : new Intl.NumberFormat('pt-BR').format(entry.value)}
+               {formatValue(entry.value, isPrivacy, valueType, 'tooltip')}
              </span>
           </div>
         ))}
@@ -262,9 +299,9 @@ const DashboardView: React.FC<DashboardViewProps> = ({
 
       let newData = Array.from(groupingMap.entries()).map(([name, value]) => ({ name, value }));
 
-      if (chart.type === 'bar' || chart.type === 'pie') {
+      if (chart.type === 'bar' || chart.type === 'pie' || chart.type === 'donut') {
         newData.sort((a, b) => b.value - a.value);
-        if (chart.type === 'pie') newData = newData.slice(0, 8); 
+        if (chart.type === 'pie' || chart.type === 'donut') newData = newData.slice(0, 8); 
         else newData = newData.slice(0, 15); // Limit bars
       }
       
@@ -385,9 +422,12 @@ const DashboardView: React.FC<DashboardViewProps> = ({
       {/* --- Dynamic AI Charts --- */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 md:gap-8 relative z-0">
         {dynamicCharts.map((chart, idx) => {
-          const totalValue = chart.type === 'pie' ? chart.data.reduce((acc, curr) => acc + curr.value, 0) : 0;
+          const totalValue = (chart.type === 'pie' || chart.type === 'donut') ? chart.data.reduce((acc, curr) => acc + curr.value, 0) : 0;
           const hasData = chart.data.length > 0 && chart.data.some(d => d.value > 0);
           
+          // Determine Value Type for this specific chart
+          const valueType = detectValueType(chart.dataKey, data.reportType);
+
           return (
             <React.Fragment key={idx}>
             <div 
@@ -427,11 +467,17 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                       </defs>
                       <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                       <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 11}} dy={10} interval="preserveStartEnd" minTickGap={30} />
-                      <YAxis axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 11}} tickFormatter={(v) => formatValue(v, false)} width={40} />
-                      <Tooltip cursor={{fill: '#f8fafc'}} content={<CustomTooltip isPrivacy={false} />} />
+                      <YAxis 
+                        axisLine={false} 
+                        tickLine={false} 
+                        tick={{fill: '#64748b', fontSize: 11}} 
+                        tickFormatter={(v) => formatValue(v, false, valueType, 'axis')} 
+                        width={40} 
+                      />
+                      <Tooltip cursor={{fill: '#f8fafc'}} content={<CustomTooltip isPrivacy={false} valueType={valueType} />} />
                       <Bar 
                         dataKey="value" 
-                        name={data.reportType === 'Vendas' ? 'Valor' : 'Qtd'} 
+                        name={valueType === 'currency' ? 'Valor' : 'Quantidade'} 
                         fill={`url(#gradBar-${idx})`} 
                         radius={[4, 4, 0, 0]} 
                         maxBarSize={50}
@@ -446,15 +492,43 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                         strokeDasharray="5 5" 
                         opacity={0.5} 
                         isAnimationActive={!disableAnimations}
+                        name="Tendência"
                       />
                     </ComposedChart>
-                  ) : chart.type === 'pie' ? (
+                  ) : chart.type === 'horizontalBar' ? (
+                    <ComposedChart layout="vertical" data={chart.data} margin={{ top: 10, right: 30, left: 20, bottom: 0 }}>
+                      <defs>
+                        <linearGradient id={`gradHBar-${idx}`} x1="0" y1="0" x2="1" y2="0">
+                          <stop offset="0%" stopColor="#8b5cf6" stopOpacity={0.8}/>
+                          <stop offset="100%" stopColor="#6366f1" stopOpacity={1}/>
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
+                      <XAxis 
+                        type="number" 
+                        axisLine={false} 
+                        tickLine={false} 
+                        tick={{fill: '#64748b', fontSize: 11}} 
+                        tickFormatter={(v) => formatValue(v, false, valueType, 'axis')} 
+                      />
+                      <YAxis type="category" dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 11}} width={100} />
+                      <Tooltip cursor={{fill: '#f8fafc'}} content={<CustomTooltip isPrivacy={false} valueType={valueType} />} />
+                      <Bar 
+                        dataKey="value" 
+                        name={valueType === 'currency' ? 'Valor' : 'Quantidade'} 
+                        fill={`url(#gradHBar-${idx})`} 
+                        radius={[0, 4, 4, 0]} 
+                        barSize={20}
+                        isAnimationActive={!disableAnimations} 
+                      />
+                    </ComposedChart>
+                  ) : (chart.type === 'pie' || chart.type === 'donut') ? (
                     <PieChart>
                       <Pie
                         data={chart.data}
                         cx="50%"
                         cy="50%"
-                        innerRadius={60}
+                        innerRadius={chart.type === 'donut' ? 60 : 0}
                         outerRadius={80}
                         paddingAngle={4}
                         dataKey="value"
@@ -464,7 +538,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                           <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} strokeWidth={0} />
                         ))}
                       </Pie>
-                      <Tooltip content={<CustomTooltip isPrivacy={false} />} />
+                      <Tooltip content={<CustomTooltip isPrivacy={false} valueType={valueType} />} />
                       <Legend 
                         layout="vertical" 
                         verticalAlign="middle" 
@@ -477,7 +551,7 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                             <span className="text-slate-600 text-[10px] md:text-xs font-medium ml-2">
                               {value.length > 15 ? value.substring(0, 15) + '...' : value}
                               <span className="text-slate-400 ml-1 block md:inline">
-                                ({formatValue(entry.payload.value, false)} • {percent}%)
+                                ({formatValue(entry.payload.value, false, valueType, 'axis')} • {percent}%)
                               </span>
                             </span>
                           );
@@ -494,11 +568,18 @@ const DashboardView: React.FC<DashboardViewProps> = ({
                       </defs>
                       <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" />
                       <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 11}} dy={10} minTickGap={30} />
-                      <YAxis axisLine={false} tickLine={false} tick={{fill: '#64748b', fontSize: 11}} tickFormatter={(v) => formatValue(v, false)} width={40} />
-                      <Tooltip content={<CustomTooltip isPrivacy={false} />} />
+                      <YAxis 
+                        axisLine={false} 
+                        tickLine={false} 
+                        tick={{fill: '#64748b', fontSize: 11}} 
+                        tickFormatter={(v) => formatValue(v, false, valueType, 'axis')} 
+                        width={40} 
+                      />
+                      <Tooltip content={<CustomTooltip isPrivacy={false} valueType={valueType} />} />
                       <Area 
                         type="monotone" 
                         dataKey="value" 
+                        name={valueType === 'currency' ? 'Valor' : 'Quantidade'}
                         stroke="#0ea5e9" 
                         strokeWidth={3} 
                         fill={`url(#colorValue-${idx})`} 

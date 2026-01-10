@@ -17,7 +17,8 @@ import {
   PlayCircle,
   StopCircle,
   Loader2,
-  Volume2
+  Volume2,
+  Download
 } from 'lucide-react';
 
 interface ExecutiveSummaryProps {
@@ -230,6 +231,42 @@ const ExecutiveSummary: React.FC<ExecutiveSummaryProps> = ({ summary }) => {
     }
   };
   
+  const handleExportActionPlan = () => {
+    if (!summary.actionPlan || summary.actionPlan.length === 0) return;
+
+    // Cabeçalho do CSV
+    const headers = ["Ação Recomendada", "Impacto", "Esforço Estimado"];
+    
+    // Linhas de dados
+    const rows = summary.actionPlan.map(item => [
+      `"${item.text.replace(/"/g, '""')}"`, // Escape de aspas duplas para CSV
+      item.impact,
+      item.effort
+    ]);
+
+    // Monta o conteúdo CSV
+    const csvContent = [
+      headers.join(';'), // Usando ponto e vírgula para melhor compatibilidade com Excel PT-BR
+      ...rows.map(r => r.join(';'))
+    ].join('\n');
+
+    // Cria o Blob com BOM para UTF-8 (importante para Excel abrir acentos corretamente)
+    const blob = new Blob(["\uFEFF" + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    
+    // Cria link temporário e clica
+    const link = document.createElement('a');
+    link.href = url;
+    const safeDate = new Date().toISOString().slice(0,10);
+    link.setAttribute('download', `Plano_de_Acao_${safeDate}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    
+    // Limpeza
+    document.body.removeChild(link);
+    URL.revokeObjectURL(url);
+  };
+
   // Cleanup on unmount
   useEffect(() => {
     return () => stopAudio();
@@ -433,10 +470,15 @@ const ExecutiveSummary: React.FC<ExecutiveSummaryProps> = ({ summary }) => {
              </div>
 
              <div className="mt-8 pt-6 border-t border-slate-800">
-               <div className="flex items-center gap-2 text-slate-400 text-xs hover:text-white transition-colors cursor-pointer group">
+               <button 
+                onClick={handleExportActionPlan}
+                className="w-full flex items-center justify-between gap-2 text-slate-400 text-xs hover:text-white transition-colors cursor-pointer group bg-transparent border-none p-0"
+               >
                   <span>Exportar Plano de Ação</span>
-                  <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
-               </div>
+                  <div className="p-1.5 rounded bg-slate-800 group-hover:bg-emerald-600 transition-colors">
+                    <Download className="w-3 h-3 text-slate-400 group-hover:text-white" />
+                  </div>
+               </button>
              </div>
           </div>
         </div>

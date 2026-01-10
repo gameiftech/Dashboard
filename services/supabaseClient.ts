@@ -23,7 +23,16 @@ export const isConfigured =
   !projectKey.includes('sua-chave');
 
 // Cria o cliente. Se não estiver configurado, cria um cliente "dummy" para não quebrar a aplicação imediatamente.
+// Configurado para usar sessionStorage para que o login expire ao fechar o navegador.
 export const supabase = createClient(
   projectUrl, 
-  projectKey
+  projectKey,
+  {
+    auth: {
+      storage: sessionStorage, // Força a limpeza da sessão ao fechar a aba/janela
+      autoRefreshToken: true,
+      persistSession: true,
+      detectSessionInUrl: true,
+    },
+  }
 );

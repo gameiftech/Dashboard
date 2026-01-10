@@ -27,7 +27,7 @@ export interface ChartDataPoint {
 
 export interface ChartConfig {
   title: string;
-  type: 'bar' | 'line' | 'pie' | 'area';
+  type: 'bar' | 'line' | 'pie' | 'area' | 'donut' | 'horizontalBar';
   data: ChartDataPoint[];
   dataKey: string;
   categoryKey: string;
@@ -68,6 +68,15 @@ export interface AnalysisResult {
   executiveSummary: StructuredSummary; 
   columnMapping: Record<string, string>;
   cleanData: Record<string, any>[];
+}
+
+export interface HistoryItem {
+  id: string;
+  timestamp: string;
+  fileName: string;
+  reportName: string;
+  reportType: ReportType;
+  result: AnalysisResult; // Armazena o resultado completo para recarregar
 }
 
 export enum AppState {

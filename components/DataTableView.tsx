@@ -5,9 +5,10 @@ import { ChevronLeft, ChevronRight, Search, Filter, EyeOff } from 'lucide-react'
 interface DataTableViewProps {
   data: AnalysisResult;
   isPrivacyMode: boolean;
+  printMode?: boolean; // Nova prop para exportação
 }
 
-const DataTableView: React.FC<DataTableViewProps> = ({ data, isPrivacyMode }) => {
+const DataTableView: React.FC<DataTableViewProps> = ({ data, isPrivacyMode, printMode = false }) => {
   const [currentPage, setCurrentPage] = useState(1);
   const [filters, setFilters] = useState<Record<string, string>>({});
   
@@ -28,8 +29,12 @@ const DataTableView: React.FC<DataTableViewProps> = ({ data, isPrivacyMode }) =>
     });
   });
 
+  // Se estiver em modo impressão, mostra até 100 linhas e ignora paginação
+  const rowsToDisplay = printMode 
+    ? filteredData.slice(0, 100) 
+    : filteredData.slice((currentPage - 1) * rowsPerPage, currentPage * rowsPerPage);
+
   const totalPages = Math.ceil(filteredData.length / rowsPerPage);
-  const currentData = filteredData.slice((currentPage - 1) * rowsPerPage, currentPage * rowsPerPage);
 
   const handlePrev = () => setCurrentPage(p => Math.max(1, p - 1));
   const handleNext = () => setCurrentPage(p => Math.min(totalPages, p + 1));
@@ -50,6 +55,42 @@ const DataTableView: React.FC<DataTableViewProps> = ({ data, isPrivacyMode }) =>
     return value;
   };
 
+  // --- RENDERIZÃO PARA PDF (ESTÁTICA) ---
+  if (printMode) {
+    return (
+      <div className="w-full bg-white border border-slate-200 rounded-none overflow-visible">
+         <table className="w-full text-xs text-left border-collapse">
+            <thead>
+              <tr className="bg-slate-800 text-white font-bold uppercase tracking-wider">
+                {headers.map(header => (
+                  <th key={header} className="px-2 py-2 border border-slate-700 whitespace-nowrap text-[10px]">
+                    {header}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody>
+              {rowsToDisplay.map((row, i) => (
+                <tr key={i} className={i % 2 === 0 ? 'bg-white' : 'bg-slate-50'}>
+                  {headers.map(header => (
+                    <td key={`${i}-${header}`} className="px-2 py-1.5 border border-slate-200 text-slate-700 truncate max-w-[150px]">
+                      {renderCell(header, row[header])}
+                    </td>
+                  ))}
+                </tr>
+              ))}
+            </tbody>
+         </table>
+         {filteredData.length > 100 && (
+           <div className="p-4 text-center text-slate-500 italic text-xs bg-slate-50 border-t border-slate-200">
+             * Exibindo as primeiras 100 linhas para otimização do relatório PDF. Para ver todos os {filteredData.length} registros, utilize a visualização em tabela no sistema.
+           </div>
+         )}
+      </div>
+    );
+  }
+
+  // --- RENDERIZAÇÃO INTERATIVA (PADRÃO) ---
   return (
     <div className="bg-white rounded-xl border border-slate-200 shadow-sm overflow-hidden flex flex-col h-[calc(100vh-140px)]">
       {/* Table Status Bar */}
@@ -71,7 +112,7 @@ const DataTableView: React.FC<DataTableViewProps> = ({ data, isPrivacyMode }) =>
         </div>
       </div>
 
-      {/* Scrollable Table Area - Added wrapper for horizontal scroll */}
+      {/* Scrollable Table Area */}
       <div className="flex-1 overflow-auto custom-scrollbar w-full relative">
         <table className="w-full text-sm text-left border-collapse min-w-[800px]">
           <thead className="sticky top-0 z-20 shadow-sm">
@@ -101,7 +142,7 @@ const DataTableView: React.FC<DataTableViewProps> = ({ data, isPrivacyMode }) =>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-100">
-            {currentData.map((row, i) => (
+            {rowsToDisplay.map((row, i) => (
               <tr key={i} className="hover:bg-blue-50/50 transition-colors group">
                 {headers.map(header => (
                   <td key={`${i}-${header}`} className="px-4 py-2 whitespace-nowrap text-slate-600 text-xs border-r border-slate-100 last:border-r-0 group-hover:border-blue-100">
@@ -110,7 +151,7 @@ const DataTableView: React.FC<DataTableViewProps> = ({ data, isPrivacyMode }) =>
                 ))}
               </tr>
             ))}
-            {currentData.length === 0 && (
+            {rowsToDisplay.length === 0 && (
               <tr>
                 <td colSpan={headers.length} className="px-6 py-12 text-center text-slate-400">
                   <div className="flex flex-col items-center gap-2">
